@@ -2,10 +2,7 @@ var inquirer = require("inquirer");
 var mysql = require("mysql");
 var Table = require("cli-table");
 
-var table = new Table({
-    head: ["Item ID", "Item", "Department", "Price"]
 
-});
 
 var connection = mysql.createConnection({
     host: "localhost",
@@ -32,6 +29,10 @@ var connection = mysql.createConnection({
 
   function displayItems(){
     var items = [];
+    var table = new Table({
+        head: ["Item ID", "Item", "Department", "Price"]
+    
+    });
     connection.query("SELECT * FROM products", function(err,res){
         if(err) throw err;
 
@@ -86,7 +87,6 @@ var connection = mysql.createConnection({
   };
 
   function checkStock(productID, amtReq){
-    console.log(productID);
     connection.query("SELECT * FROM products WHERE ?",[{
         item_id: productID 
     }],
@@ -97,19 +97,41 @@ var connection = mysql.createConnection({
         var productName = res[0].product_name;
         var stock = res[0].stock_quantity;
         var price = res[0].price;
+        var Department = res[0].department_name;
         if(amtReq <= stock){
             var newStock = stock - amtReq;
             var cost = price * amtReq;
-            connection.query("UPDATE products SET stock_quantity = ? WHERE product_name = ?", [newStock, productName],
+            var sales = cost + res[0].product_sales;
+            connection.query("UPDATE products SET stock_quantity = ?, product_sales = ? WHERE product_name = ?", [newStock, sales, productName],
             function(err,res){
                 if(err) throw err;
                 console.log("Your total is $" + cost);
                 console.log("")
+                continuePrompt();
             })
         }else{
             console.log("Insufficient quantity!");
-    
+            continuePrompt();
         };
-        connection.end();
+
+      
     });
   };
+
+  function continuePrompt(){
+      inquirer.prompt([
+          {
+              type: "confirm",
+              name: "continue",
+              message: "Would you like to purchase anything else?"
+          }
+      ])
+      .then(function(answer){
+          if(answer.continue){
+            displayItems();
+          }else {
+            console.log("Thank you, and have a marvelous day!");
+            connection.end();
+          }
+      })
+  }
